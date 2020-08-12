@@ -76,6 +76,8 @@ target/
 
 # Jupyter Notebook
 .ipynb_checkpoints
+./Dask/.ipynb_checkpoints
+./Dask/data
 
 # IPython
 profile_default/
