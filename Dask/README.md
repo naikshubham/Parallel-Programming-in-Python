@@ -114,6 +114,95 @@ long_trips_df = pd.concat(chunks)
 long_trips_df.shape
 ```
 
+### Managing Data with Generators
+
+#### Filtering in a list comprehension
+- If we replace the enclosing brackets with parentheses in a list comprehension, the result is a generator expression.
+
+#### Filtering & summing with generators
+- Generator expressions resemble comprehensions, **but use lazy evaluation**. **This means that elements are generated one-at-a-time, so they are never in memory simultaneously**. This is extremely helpful when operating at the limits of available memory.
+- We can quickly build another generator distances whose elements are totals of the trip_distance column from each chunk.
+- No actual computation is done until we iterate over the chained generators explicitly (in this case, by applying the function sum to distances).
+- **No reading or work is done until the very last step**.
+
+```python
+chunks = (filter_is_long_trip(chunk) for chunk in pd.read_csv(filename, chunksize=1000))
+
+distances = (chunk['trip_distance'].sum() for chunk in chunks)
+
+sum(distances)
+```
+
+#### Examining consumed generators
+- The generators chunks & distances persist after the computation. However, they have been consumed at this point.That is, trying to next function on either produces a `StopIteration exception` (which tells users that the generators is exhausted).
+
+#### Generators to read many files
+- Rather than having one large file to read in chunks, we have many large individual files that cannot fit in memory simultaneously.
+
+```python
+template = 'yellow_tripdata_2015-{:02d}.csv'
+filenames = (template.format(k) for k in range(1,13)) # Generator
+for fname in filenames:
+    print(fname) # examine contents
+```
+
+#### Examining a sample DataFrame
+
+```python
+df = pd.read_csv('yellow_tripdata.csv', parse_dates=[1,2]) # force columns 1 & 2 to be read as datetime objects
+df.info() # columns deleted from output
+
+# for this data, we have to calculate the trip duration explicilty
+# we embed this calculation within a function, `count_long_trips` that filters trips longer than 20 mins, and counts the total number of trips and long trips
+
+def count_long_trips(df):
+    df['duration'] = (df.tpep_dropoff_datetime - df.tpep_pickup_datetime).dt.seconds
+    is_long_trip = df.duration > 1200
+    result_dict = {'n_long' : [sum(is_long_trip)],
+                   'n_total': [len(df)]}
+    return pd.DataFrame(result_dict)
+```
+
+#### Aggregating with Generators
+- With the function count_long_trips in place, we can organize our work into a pipeline using generators.
+
+```python
+def count_long_trips(df):
+    df['duration'] = (df.tpep_dropoff_datetime - df.tpep_pickup_datetime).dt.seconds
+    is_long_trip = df.duration > 1200
+    result_dict = {'n_long':[sum(is_long_trip)],
+                   'n_total':[len(df)]}
+    return pd.DataFrame(result_dict)
+    
+filenames = [template.format(k) for k in range(1, 13)]
+
+# we create a generator dataframes to load the files listed in filenames one-by-one. we create another generator 
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
