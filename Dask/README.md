@@ -176,7 +176,14 @@ def count_long_trips(df):
     
 filenames = [template.format(k) for k in range(1, 13)]
 
-# we create a generator dataframes to load the files listed in filenames one-by-one. we create another generator 
+# we create a generator dataframes to load the files listed in filenames one-by-one. we create another generator totals that applies count_long_trips to each DataFrame from dataframes.
+
+filenames = [template.format(k) for k in range(1, 13)] # Listcomp
+dataframes = (pd.read_csv(fname, parse_dates=[1,2]) for fname in filenames) # generator
+
+totals = (count_long_trips(df) for df in dataframes) # Generator
+
+annual_totals = sum(totals) # consumes generators
 ```
 
 
