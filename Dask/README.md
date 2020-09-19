@@ -186,6 +186,147 @@ totals = (count_long_trips(df) for df in dataframes) # Generator
 annual_totals = sum(totals) # consumes generators
 ```
 
+### Delaying Computation with Dask
+
+#### Function composition
+
+```python
+from math import sqrt
+
+def f(z):
+    return sqrt(z + 4)
+def g(y):
+    return y - 3
+def h(x):
+    return x ** 2
+    
+x=4
+y=h(x)
+z=g(y)
+w=f(z)
+    
+# above is equivalent to: f(g(h(x))) 
+```
+
+#### Deferring computation with `delayed`
+
+```python
+from dask import delayed
+y = delayed(h)(x)
+z = delayed(g)(y)
+w = delayed(f)(z)
+print(w)
+
+w.compute() # computation occurs now
+```
+
+- Delayed is a higher-order function or a decorator function that maps an input function to another modified output function. The value of w, then, is delayed of f of delayed of g of delayed of h of 4.
+- If we examine w, it is a dask Delayed object rather than a numerical value.
+- The delayed decorator stalls the computation until the method compute() is invoked.
+
+#### Visualizing a task graph
+- The Dask Delayed object has another method `visualize()` that displays a task graph in some IPython shells. This linear graph shows the execution sequence and flow of data for this computation.
+
+#### Renaming decorated functions
+
+```python
+f = delayed(f)
+g = delayed(g)
+h = delayed(h)
+w = f(g(h(4)))
+
+w.compute() 
+```
+
+- The result is the same, but the functions f,g,h are now decorated permanently by delayed. This means they always return Delayed objects that defer computation until the compute() method is called.
+
+#### Using decorator @-notation
+
+```python
+def f(x):
+    return sqrt(x+4)
+f = delayed(f)
+
+@delayed #equivalent to definition in above 2 cells
+def f(x):
+    return sqrt(x+4)
+```
+
+- Here, the @ symbol means "apply the decorator function delayed to the function described below and bind that decorated function to the name f".
+
+#### Deferring Computation with Loops
+- Let's use the delayed decorator with some new functions increment, double & add.
+
+```python
+@delayed                    
+def increment(x):
+    return x+1
+@delayed
+def double(x):
+    return 2*x
+@delayed
+def add(x,y):
+    return x+y
+    
+data=[1,2,3,4,5]
+output=[]
+for x in data:
+    a = increment(x)
+    b = double(x)
+    c = add(a,b)
+    output.append(c)
+total = sum(output)
+```
+
+- The dependencies are little trickier - c depends on a & b within each iteration and its computed value is appended to the list output. The final result `total` is a `Delayed` object and `output` is a list of intermediate `Delayed` objects. 
+- Dask uses a variety of heuristic schedulers for complicated execution sequences like this. The scheduler automatically assigns tasks in parallel to extra threads or processes. In particular, **Dask users do not have to decompose computations themselves**.
+
+#### Aggregating with delayed Functions
+- Repeat yellow cab ride data analysis using Dask instead of generators.
+
+```python
+template = 'yellow_tripdata_2015-{:02d}.csv'
+filenames = [template.format(k) for k in range(1,13)]
+
+@delayed
+def count_long_trips(df):
+    df['duration'] = (df.tpep_dropoff_datetime - df.tpep_pickup_datetime).dt.seconds
+    is_long_trip = df.duration > 1200
+    result_dict = {'n_long':[sum(is_long_trip)],
+                   'n_total':[len(df)]}
+    return pd.DataFrame(result_dict)
+    
+@delayed
+def read_file(fname):
+    return pd.read_csv(fname, parse_dates=[1,2])
+```
+
+- Define function `count_long_trip` adding the @delayed decorator.
+
+#### Computing fraction of long trips with `delayed` functions
+
+```python
+totals = [count_long_trips(read_file(fname)) for fname in filenames]
+annual_totals = sum(totals)
+annual_totals = annual_totals.compute()
+
+fraction = annual_totals['n_long']/annual_totals['n_total']
+print(fraction)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
