@@ -314,6 +314,85 @@ fraction = annual_totals['n_long']/annual_totals['n_total']
 print(fraction)
 ```
 
+### Chunking Arrays in Dask
+- Dask arrays : A common data structure in Dask. The Dask library actually has many tools beyond the delayed decorator.
+
+#### Working with Numpy arrays
+- Dask arrays : as extensions of Numpy arrays.
+
+```python
+import numpy as np
+a = np.random.rand(10000)
+print(a.shape, a.dtype)
+print(a.sum())
+print(a.mean())
+```
+
+#### Working with Dask arrays
+- The function `from_array` constructs a Dask array from a Numpy array. It requires an argument chunks; this is the number of elements in each piece of a. The chunk size here is length of a divided by 4 (2500).
+
+```python
+import dask.array as da
+
+a_dask = da.from_array(a, chunks=len(a) // 4)
+a_dask.chunks
+```
+
+#### Aggregating in chunks
+- Notice each loop iteration is independent so that they can be executed in parallel if possible.
+
+```python
+n_chunks = 4
+chunk_size = len(a) // n_chunks
+result = 0 # accumulate sum
+for k in range(n_chunks):
+    offset = k * chunk_size # track offset
+    a_chunk = a[offset:offset + chunk_size] # slice chunk
+    result += a_chunk.sum()
+print(result)    
+```
+
+#### Aggregating with Dask arrays
+- To start, create a Dask array with an appropriate chunk-size. A single call to sum yields an unevaluated Dask object. We don't need to compute offsets or slice chunks explicitly; the Dask array method does that.
+- Calling `.compute()` forces evaluation of the sum(in parallel if possible).
+- We can also view the associate Task Graph using visualize(). The option `randir='LR'` forces a horizontal layout. The four rectangles in the middle represents the chunks of data. As the data flows from left to right, the sum method is invoked on each chunk. The Dask scheduler can assign work to multiple threads or processes concurrently if available.
+
+```python
+a_dask = da.from_array(a, chunks=len(a)//n_chunks)
+result = a_dask.sum()
+result
+
+print(result.compute())
+
+result.visualize(rankdir='LR')  # vizualize
+```
+
+#### Dask array methods/attributes
+- Dask arrays share many attributes with numpy arrays. `shape , ndim, nbytes, dtype, size`.
+- Most numpy **array aggregations** are also available for Dask arrays `max, min, mean, std, var, sum, prod` etc
+- Dask **array transformations** like `reshape, repeat, stack, flatten, transpose, T` are also available.
+- Also, many Numpy mathematical operations and universal functions also work with Dask arrays. `round, real, imag, conj, dot` etc.
+
+#### Timing array computations
+
+```python
+import h5py, time
+
+with h5py.File('dist.hdf5', 'r') as dset:
+    dist = dset['dist'][:]
+    
+dist_dask8 = da.from_array(dist, chunks=dist.shape[0]//8)
+t_start = time.time()
+mean8 = dist_dask8.mean().compute()
+t_end = time.time()
+t_elapsed = (t_end - t_start) * 1000
+```
+
+
+
+
+
+
 
 
 
