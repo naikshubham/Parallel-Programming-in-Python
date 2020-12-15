@@ -388,6 +388,41 @@ t_end = time.time()
 t_elapsed = (t_end - t_start) * 1000
 ```
 
+### Computing with Multidimensional Arrays
+
+```python
+# a numpy array of time series data
+
+import numpy as np
+time_series = np.loadtxt('max_temps.csv', dtype=np.int64)
+
+# reshaping time series data
+table = time_series.reshape((3,7)) # reshape row-wise by default
+
+reshaping  : getting the correct order
+time_series.reshape((7, 3), order='F')
+
+# the option order='F' forces column-wise ordering(with successive days down the columns & successive weeks along the rows correctly)
+```
+
+#### Indexing in multiple dimensions
+- Indexing multi dimensional arrays requires only one set of brackets `table[0, 4]`
+- `table[1, 2:5]` # values from week 1, days 2,3 & 4
+- `table[0::2, ::3]` # values from weeks 0 & 2, Days 0, 3 & 6 (every second row and every 3rd col)
+
+#### Aggregating multidimensional arrays
+- `table.mean(axis=(0, 1)) # mean of rows, then columns`
+
+#### Connecting with Dask
+
+```python
+data = np.loadtxt('', usecols=(1,2,3,4), dtype=np.int64)
+
+data_dask = da.from_array(data, chunks=(366, 2))
+result = data_dask.std(axis=0) 
+result.compute()
+```
+
 
 
 
