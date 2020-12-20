@@ -423,6 +423,126 @@ result = data_dask.std(axis=0)
 result.compute()
 ```
 
+### Analyzing Weather Data
+- `HDF5 format` : is a hierarchical file format for storing and managing data.
+
+```python
+import h5py # module for reading hdf5 files
+
+data_store = h5py.File('tmax.2008.hdf5')
+for key in data_store.keys(): # iterate over keys
+    print(key)
+    
+# extract dask array from HDF5
+data = data_store['tmax'] # bind to data for introspection
+type(data)
+
+# wrap data in dask array with 3-d chunks of size 1,444,922 one for each month
+# no data is read yet
+import dask.array as da
+data_dask = da.from_array(data, chunks=(1, 444, 922))
+```
+
+#### Aggregating while ignoring NaNs
+- Applying `min()` method returns an unevaluated Dask Array. We can force evaluation using the `compute()` method. Unfortunately, this yeilds `nan (or Not a number)` when there are missing values.
+- Both Numpy & Dask have nan-aware aggregation utilities. For instance the function `nanmin` returns the minimum array entry, ignoring nan values. Thus, we can capture min & max values from data_dask (excluding nans) using `nanmin & nanmax`
+
+```python
+data_dask.min()  # yields unevaluated Dask array
+
+data_dask.min().compute() # force computation
+
+da.nanmin(data_dask).compute() # ignoring nans
+
+lo = da.nanmin(data_dask).compute()
+hi = da.nanmax(data_dask).compute()
+print(lo, hi)
+```
+
+#### Producing a visualization of data_dask
+- Code to produce the preceding image. Import pyplot & create a 4 by 3 grid of subplots called panels. Loop over panels.flatten, each time slicing from data_dask & plotting the slice with imshow.
+- The arguments vmin=lo & vmax=hi ensure a common colormap scale.
+
+```python
+N_months = data_dask.shape[0]  # no if images
+import matplotlib.pyplot as plt
+fig, panels = plt.subplots(nrows=4, ncols=3)
+
+for month, panel in zip(range(N_months), panels.flatten()):
+    im = panel.imshow(data_dask[month, :, :],
+                      origin='lower',
+                      vmin=lo, vmax=hi)
+    panel.set_title('2008--{:02d}'.format(month+1))
+    panel.axis('off')
+
+plt.suptitle('Monthly avg (max. daily temp[C])')
+plt.colorbar(im, ax=panels.ravel().tolist())
+plt.show()
+```
+
+#### Stacking arrays
+- We'll have to stack dask arrays in our analysis
+
+```python
+import numpy as np
+a = np.ones(3) 
+b = 2 * a
+c = 3 * a
+print(a, b, c)
+
+np.stack([a, b]) # makes 2D array of shape (2, 3) default is axis=0
+
+np.stack([a, b], axis=1) # makes 2D array of shape (3,2)
+
+# Stacking 1-d arrays
+X = np.stack([a, b])
+Y = np.stack([b, c])
+Z = np.stack([c, a])
+
+# Stacking 2-d arrays
+np.stack([X, Y, Z)] # makes 3D array of shape (3, 2, 3)
+```
+
+
+### Using Dask DataFrames
+- The Dask Dataframes is a delayed version of pandas DataFrame, just as the Dask array is a delayed version of the Numpy Array. By convention, dask.dataframe is imported with the alias dd.
+- `dd.read_csv()` : accepts single filename or glob pattern ( with wildcard *) to match filename patterns & concatenate dataframes.
+- `dd.read_csv()` : does not read files immediately until `dataframe.compute()` method is invoked.
+- Dask dataframes can contain more data than it can fit in available memory.
+
+#### Reading multiple csv files
+- The data from all files is automatically concatenated into a single Dask dataframe. The dask dataframe has many methods in common with pandas Dataframe; `head and tail`.
+- `.head() & .tail()` do not require that we invoke `.compute()`. This is delibrate because, in most cases, no parallelism is needed to examine the leading or trailing rows from a Dask DataFrame. Most other Dask DataFrame methods, however, do need the compute method for evaluation.
+
+```python
+import dask.dataframe as dd
+
+transactions = dd.read_csv('*csv')
+```
+
+#### Building delayed pipelines
+- `.loc` accessor can use the series `is_wendy` to filter the rows corresponding to wendy's transactions and the amount column from the Dask DataFrame transactions.
+- The result `wendy_amounts` is a Dask series of type int64 that remains unevaluated until `.compute()` is invoked. We can then add up individual transactions for 2016 using the series `.sum()` method. wendy_diff is a Dask scalar, when `.compute()` is called, the result is a single Numpy int64.
+- We can visualize a *task graph* summarizing this entire pipeline with the visualize method. The output is a *directed acyclic task graph* describing flow of data- the rectangles- through functions-the-circles- from left to right. 
+
+```python
+is_wendy = (transactions['names'] == 'Wendy')
+wendy_amounts = transactions.loc[is_wendy, 'amount']
+
+wendy_diff = wendy_amounts.sum()
+wendy_diff.visualize(rankdir='LR')
+```
+
+#### Compatibility with Pandas API
+- Some features of Pandas DataFrames are not available with Dask DataFrames. For instance, excel files & some compressed file formats(xls, zip, gz) are not supported as of version 0.15.
+- Other task like sorting are genuinely hard to do in parallel. On the other hand, the `.loc` accessor works just as in pandas. The same is true of setting & resetting the index.
+- aggregations : sum(), mean(), std(), min(), max().
+- Many other parts of the Pandas DataFrame API carry over to Dask, for instance `groupbys & datetime conversions`.
+
+
+
+
+
 
 
 
