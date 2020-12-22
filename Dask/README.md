@@ -540,6 +540,12 @@ wendy_diff.visualize(rankdir='LR')
 - Many other parts of the Pandas DataFrame API carry over to Dask, for instance `groupbys & datetime conversions`.
 
 
+#### Dask or Pandas?
+- How big is dataset? How much RAM available? How many threads/cores/CPUs available?
+- Are Pandas computations/ formats supported in Dask API?
+- Is computation I/O-bound (disk-intensive) or CPU-bound(processor intensive)?
+- *Best use case for Dask* : Computations from Pandas API available in Dask and problem size close to limits of RAM, fits on disk.
+
 
 
 
