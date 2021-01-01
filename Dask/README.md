@@ -546,6 +546,36 @@ wendy_diff.visualize(rankdir='LR')
 - Is computation I/O-bound (disk-intensive) or CPU-bound(processor intensive)?
 - *Best use case for Dask* : Computations from Pandas API available in Dask and problem size close to limits of RAM, fits on disk.
 
+### Building Dask Bags & Globbing
+- Upto, we've used Dask arrays & dataframes to work with structured, rectangular data. For messy unstructured datasets the dask bag is a convenient, heterogeneous, list-like data structure.
+
+#### Sequence to bags
+- To construct a Dask Bag, lets start with a Python list containing other containers: lists, dictionaries, and strings.
+- Dask bag converts the nested containers to a Dask Bag using the function `from_sequence`. Using the Dask bag's method `count`, we can count the number of elements of the bag.
+- The methods any and all evaluate to True and False exactly as the corresponding Numpy methods would.
+
+```python
+nested_containers = [[0,1,2,3], {}, [6.5, 3.14], 'Python', {'version':3}, '']
+
+import dask.bag as db
+the_bag = db.from_sequence(nested_containers)
+the_bag.count()
+
+the_bag.any(), the_bag.all()
+```
+
+#### Reading the text files
+- The Dask Bag is designed to work with messy or unstructured files, most often raw ascii text files. The `read_txt` function reads a single file or collection of files line-by-line into a dask bag.
+
+```python
+import dask.bag as db
+zen = db.read_txt('zen')
+```
+
+
+
+
+
 
 
 
