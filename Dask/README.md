@@ -566,11 +566,85 @@ the_bag.any(), the_bag.all()
 
 #### Reading the text files
 - The Dask Bag is designed to work with messy or unstructured files, most often raw ascii text files. The `read_txt` function reads a single file or collection of files line-by-line into a dask bag.
+- We can use the take method to inspect the contents of the bag. Invoking `take(1)` returns a tuple. The tuple has single element, the first line of the file. Invoking `take(3)`, then pulls a tuple with 3 elements, the first 3 lines of the file.
 
 ```python
 import dask.bag as db
 zen = db.read_txt('zen')
+taken = zen.take(1)
 ```
+
+### Functional Approaches using Dask Bags
+- Functions replacing loops with: `map, filter, reduce`. Map operations also works with dask bags. The computed result is a list, not a Dask bag, so we should be wary of limits of available memory.
+
+```python
+# using map
+
+def squared(x):
+    return x ** 2
+    
+squares = map(squared, [1,2,3,4,5,6])
+squares = list(squares)
+
+# using filter
+# this is a boolean values function that is True or False according to whether its input is even
+
+def is_even(x):
+    return x % 2 == 0
+evens = filter(is_even, [1,2,3,4,5,6])
+list(evens)
+
+# using dask.bag.map
+import dask.bag as db
+numbers = db.from_sequence([1,2,3,4,5,6])
+squares = numbers.map(squared)
+
+# no computing occurs until `.compute()` is invoked
+result = squares.compute()
+
+# using dask.bag.filter
+numbers = db.from_sequence([1,2,3,4,5,6])
+evens = numbers.filter(is_even)
+evens.compute()
+
+# using .str & string methods
+zen = db.read_text('zen.txt')
+uppercase = zen.str.upper()
+uppercase.take(1)
+```
+
+#### A bigger example
+
+```python
+def load(k):
+    template = 'yellow_tripdata_2015-{:02d}.csv'
+    return pd.read_csv(template.format(k))
+def average(df):
+    return df['total_amount'].mean()
+def total(df):
+    return df['total_amount'].sum()
+
+data = db.from_sequence(range(1,13)).map(load)
+totals = data.map(total)
+averages = data.map(average)
+totals.compute()
+averages.compute()
+```
+
+#### Reductions (aggregations)
+
+```python
+t_sum, t_min, t_max = totals.sum(), totals.min(), totals.max()
+t_mean, t_std = totals.mean(), totals.std()
+stats = [t_sum, t_min, t_max, t_mean, t_std]
+[s.compute() for s in stats]
+
+# a single call to dask.compute takes less time bcz dask can optimize disk reads & schedule parallel graph execution
+
+dask.compute(t_sum, t_min, t_max, t_mean, t_std)
+```
+
+
 
 
 
