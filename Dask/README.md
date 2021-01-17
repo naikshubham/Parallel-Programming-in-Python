@@ -718,7 +718,13 @@ df = dd.read_csv('flightdelays-2016-*.csv')
 - **The bottleneck in this 3 computations is in repeatedly reading the data from disk every time we execute the compute() method. If the data is too large to fit in memory, these repeated reads are unavoidable***
 
 #### Using persistence
-- When the DataFrame does fit in the memory, Dask DataFrames have a method `persist` to keep the intermediate state of the DataFrame in memory.
+- When the DataFrame does fit in the memory, Dask DataFrames have a method `persist` to keep the intermediate state of the DataFrame in memory. Now if we compute the mean of the column from persisted_df, it takes only 19ms.
+- **When the data required fits in memory, using persistence allows significant performance improvements**
+- Persisted dataframe computations can also be executed in parallel(unlike with pandas dataframes)
+
+```python
+%time peristed_df = df.persist()
+```
 
 
 
