@@ -644,17 +644,81 @@ stats = [t_sum, t_min, t_max, t_mean, t_std]
 dask.compute(t_sum, t_min, t_max, t_mean, t_std)
 ```
 
+### Case study : Analyzing Flight Delays
+- Search for correlations between flight delays and weather events at selected airports. Dask dataframes can be constructed using single file or from many files using glob.
 
+#### Limitations of Dask DataFrames
+- There's currently no native Dask support for Excel, gzip & some other useful file formats.
+- Cleaning files independently when globbing is tricky. And nested subdirectories are tricky with glob.
+- Example if we have `accounts/Alice.csv and acounts/Bob.csv`. Account holder name is filename but its not recorded within the file itself.
 
+### Reading/cleaning in a function
+- We need to build a large dataframe combining these files that preserves the account holders name.
 
+```python
+import pandas as pd
+from dask import delayed
 
+# create a function pipeline decorated by delayed
+@delayed
+def pipeline(filename, account_name):
+    df = pd.read_csv(filename)
+    df['account_name'] = account_name
+    return df
+    
+# using dd.from_delayed()    
+# iterate over 3 acc holders    
+delayed_dfs = []
 
+# within the loop we construct a filepath and use pipeline to accumulate a list of delayed_dfs of delayed pandas dataframes
+for account in ['Bob','Alice','Dave']:
+    fname = 'accounts/{}.csv'.format(account)
+    delayed_dfs.append(pipeline(fname, account))
+    
+import dask.dataframe as dd
+dask_df = dd.from_delayed(delayed_dfs)
+dask_df['amount'].mean().compute()
+```
 
+#### Flight delays data
+- We are interested in `WEATHER_DELAY` column that tells the no of minutes by which flight was delayed due to weather. 
 
+```python
+df = pd.read_csv('flightdelays-2016-1.csv')
 
+# replacing values
+new_series = series.replace(6, np.nan)
+```
 
+- Pandas has a function `to_numeric` that can convert a series to floating point values.The option `errors=coerce` is used to force the non-numeric characters to be translated to nans.
 
+```python
+new_series = pd.to_numeric(series, errors='coerce')
+```
 
+### Merging & Persisting DataFrames
+- A convenient way to stitch together dataframes with overlapping columns. Both pandas and dask dataframes have a merge method.
+
+```python
+left_df.merge(right_df, left_on=['cat_left'], right_on=['cat_right'], how='inner')
+```
+
+#### Repeated reads & performance
+
+```python
+import dask.dataframe as dd
+df = dd.read_csv('flightdelays-2016-*.csv')
+%time print(df.WEATHER_DELAY.mean().compute())
+
+%time print(df.WEATHER_DELAY.std().compute())
+
+%time print(df.WEATHER_DELAY.count().compute())
+```
+
+- **The bottleneck in this 3 computations is in repeatedly reading the data from disk every time we execute the compute() method. If the data is too large to fit in memory, these repeated reads are unavoidable***
+
+#### Using persistence
+- When the DataFrame does fit in the memory, Dask DataFrames have a method `persist` to keep the intermediate state of the DataFrame in memory.
 
 
 
